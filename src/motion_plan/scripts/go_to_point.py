@@ -6,8 +6,11 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist, Point
 from nav_msgs.msg import Odometry
 from tf import transformations
+from std_srvs.srv import *
 
 import math
+
+active_ = False
 
 # robot state variables
 position_ = Point()
@@ -16,8 +19,8 @@ yaw_ = 0
 state_ = 0
 # goal
 desired_position_ = Point()
-desired_position_.x = 5
-desired_position_.y = 8
+desired_position_.x = rospy.get_param('des_pos_x')
+desired_position_.y = rospy.get_param('des_pos_y')
 desired_position_.z = 0
 # parameters
 yaw_precision_ = math.pi / 90  # +/- 2 degree allowed
@@ -25,6 +28,16 @@ dist_precision_ = 0.3
 
 # publishers
 pub = None
+
+# service callback
+def go_to_point_switch(req):
+    global active_
+    active_ = req.data
+    res = SetBoolResponse()
+    res.success = True
+    res.message = 'Done!'
+    return res
+
 
 # callbacks
 def clbk_odom(msg):
@@ -50,10 +63,18 @@ def change_state(state):
     print('State changed to [%s]' % state_)
 
 
+def normalize_angle(angle):
+    if(math.fabs(angle) > math.pi):
+        angle = angle - (2 * math.pi * angle) / (math.fabs(angle))
+    return angle
+
+
 def fix_yaw(des_pos):
     global yaw_, pub, yaw_precision_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
-    err_yaw = desired_yaw - yaw_
+    err_yaw = normalize_angle(desired_yaw - yaw_)
+
+    rospy.loginfo(err_yaw)
 
     twist_msg = Twist()
     if math.fabs(err_yaw) > yaw_precision_:
@@ -75,7 +96,7 @@ def go_straight_ahead(des_pos):
 
     if err_pos > dist_precision_:
         twist_msg = Twist()
-        twist_msg.linear.x = 0.3
+        twist_msg.linear.x = 0.5
         pub.publish(twist_msg)
     else:
         print('Position error [%s]' % err_pos)
@@ -104,17 +125,21 @@ def main():
 
     sub_odom = rospy.Subscriber('/odom', Odometry, clbk_odom)
 
+    srv = rospy.Service('go_to_point_switch', SetBool, go_to_point_switch)
     rate = rospy.Rate(20)
     while not rospy.is_shutdown():
-        if state_ == 0:
-            fix_yaw(desired_position_)
-        elif state_ == 1:
-            go_straight_ahead(desired_position_)
-        elif state_ == 2:
-            done()
+        if not active_:
+            continue
         else:
-            rospy.logerr('Unknown state!')
-            pass
+            if state_ == 0:
+                fix_yaw(desired_position_)
+            elif state_ == 1:
+                go_straight_ahead(desired_position_)
+            elif state_ == 2:
+                done()
+            else:
+                rospy.logerr('Unknown state!')
+
         rate.sleep()
 
 if __name__ == '__main__':

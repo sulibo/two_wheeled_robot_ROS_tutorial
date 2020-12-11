@@ -6,9 +6,11 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from tf import transformations
+from std_srvs.srv import *
 
 import math
 
+active_ = False
 pub_ = None
 
 regions_ = {
@@ -26,6 +28,15 @@ state_dict_ = {
         1: 'turn left',
         2: 'follow the wall'
         }
+
+def wall_follower_switch(req):
+    global active_
+    active_ = req.data
+    res = SetBoolResponse()
+    res.success = True
+    res.message = 'Done!'
+    return res
+
 
 def clbk_laser(msg):
     global regions_
@@ -116,8 +127,14 @@ def main():
 
     sub = rospy.Subscriber('/m2wr/laser/scan', LaserScan, clbk_laser)
 
+    srv = rospy.Service('wall_follower_switch', SetBool, wall_follower_switch)
+
     rate = rospy.Rate(20)
     while not rospy.is_shutdown():
+        if not active_:
+            rate.sleep()
+            continue
+
         msg = Twist()
         if state_ == 0:
             msg = find_wall()
