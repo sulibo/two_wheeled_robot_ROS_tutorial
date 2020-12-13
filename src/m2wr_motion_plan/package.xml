@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>motion_plan</name>
+  <name>m2wr_motion_plan</name>
   <version>0.0.0</version>
   <description>The motion_plan package</description>
 
