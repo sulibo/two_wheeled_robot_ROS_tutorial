@@ -19,7 +19,7 @@ Clone the codes
 git clone https://github.com/sulibo/Two_Wheeled_Robot_ROS_Tutorial.git 
 ```
 
-Build up the ROS packages
+Build the ROS packages
 
 ```bash
 cd Two_Wheeled_Robot_ROS_Tutorial
